@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <!-- Viteのロゴなどを読み込む行は削除またはコメントアウトしてもOKです -->
+  <!-- <link rel="icon" type="image/svg+xml" href="/vite.svg" /> -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>フラッシュカード学習アプリ</title>
+
+  <!-- 💡 Tailwind CSSを動作させるための重要な設定を追加 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 3D反転のための設定 */
+    .perspective-1000 {
+      perspective: 1000px;
+    }
+
+    .rotate-y-180 {
+      transform: rotateY(180deg);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- アプリケーションが挿入される場所 -->
+  <div id="root"></div>
+  <!-- main.jsx を読み込む -->
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
+</html>
