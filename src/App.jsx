@@ -188,79 +188,69 @@ function AddCardForm({ categories, onAddCard, onToggle }) {
   const existingCategories = categories.filter((c) => c !== '全て');
 
   return (
-    <div className="panel panel--floating add-card-form">
-      <div className="panel__header">
-        <div>
-          <p className="panel__eyebrow">カード編集</p>
-          <h3 className="panel__title">カードを追加</h3>
-        </div>
+    <div className="panel">
+      <div className="panel-header">
+        <h3 className="panel-title">カードを追加</h3>
         <button className="button button--ghost" onClick={onToggle} type="button">
           閉じる
         </button>
       </div>
-      <form className="form" onSubmit={handleSubmit}>
-        <div className="form__field form__field--stack">
-          <label className="form__label">カテゴリー</label>
-          <select
-            className="form__control"
-            name="category"
-            onChange={handleChange}
-            value={formData.category}
-            disabled={Boolean(formData.newCategory.trim())}
-          >
-            <option value="">--- 既存のカテゴリーを選択 ---</option>
-            {existingCategories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-          <span className="form__hint">または新しいカテゴリー名を入力してください。</span>
-          <input
-            className="form__control"
-            name="newCategory"
-            onChange={handleChange}
-            placeholder="新しいカテゴリー名"
-            type="text"
-            value={formData.newCategory}
-          />
-        </div>
+      <form className="stack-form" onSubmit={handleSubmit}>
+        <label className="form-label">カテゴリー</label>
+        <select
+          className="form-control"
+          name="category"
+          onChange={handleChange}
+          value={formData.category}
+          disabled={Boolean(formData.newCategory.trim())}
+        >
+          <option value="">--- 既存のカテゴリーを選択 ---</option>
+          {existingCategories.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
+        <input
+          className="form-control"
+          name="newCategory"
+          onChange={handleChange}
+          placeholder="新しいカテゴリー名"
+          type="text"
+          value={formData.newCategory}
+        />
 
-        <div className="form__field">
-          <label className="form__label" htmlFor="question">
-            問題
-          </label>
-          <textarea
-            className="form__control form__control--textarea"
-            id="question"
-            name="question"
-            onChange={handleChange}
-            placeholder="例: Reactの最新バージョンは？"
-            required
-            rows={3}
-            value={formData.question}
-          />
-        </div>
+        <label className="form-label" htmlFor="question">
+          問題
+        </label>
+        <textarea
+          className="form-control"
+          id="question"
+          name="question"
+          onChange={handleChange}
+          placeholder="例: Reactの最新バージョンは？"
+          required
+          rows={3}
+          value={formData.question}
+        />
 
-        <div className="form__field">
-          <label className="form__label" htmlFor="answer">
-            答え
-          </label>
-          <textarea
-            className="form__control form__control--textarea"
-            id="answer"
-            name="answer"
-            onChange={handleChange}
-            placeholder="例: React 18 / React 19"
-            required
-            rows={3}
-            value={formData.answer}
-          />
-        </div>
+        <label className="form-label" htmlFor="answer">
+          答え
+        </label>
+        <textarea
+          className="form-control"
+          id="answer"
+          name="answer"
+          onChange={handleChange}
+          placeholder="例: React 18 / React 19"
+          required
+          rows={3}
+          value={formData.answer}
+        />
 
-        {formError && <p className="form__error">{formError}</p>}
+        {formError && <p className="form-error">{formError}</p>}
 
-        <button className="button button--primary button--block" type="submit">
+        <button className="button button--primary" type="submit">
           カードを追加
         </button>
       </form>
@@ -320,165 +310,133 @@ function AiFlashcardGenerator({
     (formData.topic.trim() ? `${formData.topic.trim()} (AI生成)` : '');
 
   return (
-    <section className="panel panel--ai">
-      <header className="panel__header">
-        <div>
-          <p className="panel__eyebrow">AIサポート</p>
-          <h2 className="panel__title">AIでフラッシュカードを生成</h2>
+    <div className="stack">
+      <div className="stack-header">
+        <h2 className="panel-title">AIカード生成</h2>
+        <span className="tag">プレビュー</span>
+      </div>
+      <form className="stack-form" onSubmit={handleSubmit}>
+        <label className="form-label" htmlFor="ai-topic">
+          トピック
+        </label>
+        <input
+          autoComplete="off"
+          className="form-control"
+          id="ai-topic"
+          name="topic"
+          onChange={handleChange}
+          placeholder="例: React コンポーネント設計"
+          required
+          value={formData.topic}
+        />
+
+        <label className="form-label" htmlFor="ai-detail">
+          補足情報
+        </label>
+        <input
+          autoComplete="off"
+          className="form-control"
+          id="ai-detail"
+          name="detail"
+          onChange={handleChange}
+          placeholder="例: フック / 状態管理 / テスト"
+          value={formData.detail}
+        />
+
+        <label className="form-label" htmlFor="ai-count">
+          作成枚数
+        </label>
+        <select
+          className="form-control"
+          id="ai-count"
+          name="count"
+          onChange={handleChange}
+          value={formData.count}
+        >
+          <option value={3}>3 枚</option>
+          <option value={5}>5 枚</option>
+          <option value={8}>8 枚</option>
+          <option value={10}>10 枚</option>
+        </select>
+
+        <div className="radio-group">
+          <label className="radio-option">
+            <input
+              checked={mode === 'new'}
+              name="ai-target"
+              onChange={() => setMode('new')}
+              type="radio"
+            />
+            新しいグループ
+          </label>
+          <label className="radio-option">
+            <input
+              checked={mode === 'existing'}
+              name="ai-target"
+              onChange={() => setMode('existing')}
+              type="radio"
+            />
+            既存グループ
+          </label>
         </div>
-        <span className="badge badge--outline">プレビュー</span>
-      </header>
-      <p className="panel__description">
-        トピックと追加情報を入力すると、AIが学習カードのたたき台を作成します。
-        生成されたカードは後から自由に編集できます。
-      </p>
 
-      <form className="form ai-form" onSubmit={handleSubmit}>
-        <div className="form__grid">
-          <div className="form__field">
-            <label className="form__label" htmlFor="ai-topic">
-              トピック<span className="form__required">必須</span>
+        {mode === 'new' ? (
+          <>
+            <label className="form-label" htmlFor="ai-new-group">
+              グループ名
             </label>
             <input
-              autoComplete="off"
-              className="form__control"
-              id="ai-topic"
-              name="topic"
+              className="form-control"
+              id="ai-new-group"
+              name="newGroupName"
               onChange={handleChange}
-              placeholder="例: React コンポーネント設計"
-              required
-              value={formData.topic}
+              placeholder="例: React基礎 (AI生成)"
+              value={formData.newGroupName}
             />
-          </div>
-
-          <div className="form__field">
-            <label className="form__label" htmlFor="ai-detail">
-              補足情報
-            </label>
-            <input
-              autoComplete="off"
-              className="form__control"
-              id="ai-detail"
-              name="detail"
-              onChange={handleChange}
-              placeholder="例: フック / 状態管理 / テスト"
-              value={formData.detail}
-            />
-          </div>
-
-          <div className="form__field">
-            <label className="form__label" htmlFor="ai-count">
-              作成枚数
+            <span className="hint">
+              未入力の場合は「{suggestedGroupName || '新規グループ'}」になります。
+            </span>
+          </>
+        ) : (
+          <>
+            <label className="form-label" htmlFor="ai-existing-group">
+              追加先グループ
             </label>
             <select
-              className="form__control"
-              id="ai-count"
-              name="count"
+              className="form-control"
+              id="ai-existing-group"
+              name="targetGroupId"
               onChange={handleChange}
-              value={formData.count}
+              required={mode === 'existing'}
+              value={formData.targetGroupId}
             >
-              <option value={3}>3 枚</option>
-              <option value={5}>5 枚</option>
-              <option value={8}>8 枚</option>
-              <option value={10}>10 枚</option>
+              <option value="">--- グループを選択 ---</option>
+              {existingGroupOptions.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
             </select>
-          </div>
-        </div>
+          </>
+        )}
 
-        <fieldset className="form__fieldgroup">
-          <legend className="form__label">追加先</legend>
-          <div className="ai-target">
-            <label className="ai-target__option">
-              <input
-                checked={mode === 'new'}
-                name="ai-target"
-                onChange={() => setMode('new')}
-                type="radio"
-              />
-              <span>新しいグループを作成</span>
-            </label>
-            <label className="ai-target__option">
-              <input
-                checked={mode === 'existing'}
-                name="ai-target"
-                onChange={() => setMode('existing')}
-                type="radio"
-              />
-              <span>既存グループに追加</span>
-            </label>
-          </div>
+        {error && <p className="form-error">{error}</p>}
 
-          {mode === 'new' ? (
-            <div className="form__field">
-          <label className="form__label" htmlFor="ai-new-group">
-            グループ名
-          </label>
-          <input
-            className="form__control"
-            id="ai-new-group"
-            name="newGroupName"
-            onChange={handleChange}
-            placeholder="例: React基礎 (AI生成)"
-            value={formData.newGroupName}
-          />
-          <span className="form__hint">
-            空欄の場合は「{suggestedGroupName || '新規グループ'}」として作成されます。
-          </span>
-        </div>
-          ) : (
-            <div className="form__field">
-              <label className="form__label" htmlFor="ai-existing-group">
-                グループを選択
-              </label>
-              <select
-                className="form__control"
-                id="ai-existing-group"
-                name="targetGroupId"
-                onChange={handleChange}
-                required={mode === 'existing'}
-                value={formData.targetGroupId}
-              >
-                <option value="">--- グループを選択 ---</option>
-                {existingGroupOptions.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </fieldset>
-
-        {error && <p className="form__error">{error}</p>}
-
-        <button
-          className="button button--primary button--block"
-          disabled={isGenerating}
-          type="submit"
-        >
+        <button className="button button--primary" disabled={isGenerating} type="submit">
           {isGenerating ? '生成中...' : 'カードを生成'}
         </button>
       </form>
 
-      <footer className="panel__footer">
-        {lastResult ? (
-          <div className="ai-result">
-            <p className="ai-result__title">直近の生成結果</p>
-            <p className="ai-result__meta">
-              {lastResult.groupName} に {lastResult.cardCount} 枚追加しました。
-            </p>
-            <p className="ai-result__meta">
-              トピック: {lastResult.topic}
-              {lastResult.detail ? ` ｜ 補足: ${lastResult.detail}` : ''}
-            </p>
-          </div>
-        ) : (
-          <p className="panel__note">
-            バックエンドを接続すると、実際のAIモデルによるカード生成が行えます。
+      {lastResult ? (
+        <div className="result">
+          <p>{lastResult.groupName} に {lastResult.cardCount} 枚追加しました。</p>
+          <p>
+            トピック: {lastResult.topic}
+            {lastResult.detail ? ` ｜ 補足: ${lastResult.detail}` : ''}
           </p>
-        )}
-      </footer>
-    </section>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -564,177 +522,115 @@ function StudyScreen({ group, setGroup, setScreen, nextCardId, setNextCardId }) 
   };
 
   return (
-    <div className="screen study-screen">
-      <header className="screen__header">
-        <button
-          className="button button--ghost"
-          onClick={() => setScreen('Home')}
-          type="button"
-        >
+    <div className="screen">
+      <header className="screen-header">
+        <button className="button button--ghost" onClick={() => setScreen('Home')} type="button">
           ← グループ一覧へ
         </button>
-        <div className="screen__heading">
-          <p className="screen__eyebrow">学習モード</p>
-          <h1 className="screen__title">{group.name}</h1>
-        </div>
-        <div className="screen__actions">
-          <button
-            className="button"
-            onClick={() => setShowAddForm((prev) => !prev)}
-            type="button"
-          >
-            {showAddForm ? 'フォームを閉じる' : 'カードを追加'}
-          </button>
-        </div>
+        <h1 className="screen-title">{group.name}</h1>
+        <button
+          className="button"
+          onClick={() => setShowAddForm((prev) => !prev)}
+          type="button"
+        >
+          {showAddForm ? 'フォームを閉じる' : 'カードを追加'}
+        </button>
       </header>
 
-      <div className="study-layout">
-        <div className="study-layout__main">
-          <section className="panel panel--subtle study-controls">
-            <div className="study-controls__item">
-              <span className="study-controls__label">カテゴリー</span>
-              <select
-                className="form__control form__control--condensed"
-                onChange={(event) => setSelectedCategory(event.target.value)}
-                value={selectedCategory}
-              >
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="study-controls__item">
-              <span className="study-controls__label">進捗</span>
-              <span className="study-controls__value">
-                {filteredCards.length > 0
-                  ? `${currentFilteredIndex + 1} / ${filteredCards.length}`
-                  : '0 / 0'}
-              </span>
-            </div>
-            <div className="study-controls__item">
-              <span className="study-controls__label">総カード数</span>
-              <span className="study-controls__value">{cards.length}</span>
-            </div>
-          </section>
-
-          {showAddForm && (
-            <AddCardForm
-              categories={categories}
-              onAddCard={handleAddCard}
-              onToggle={() => setShowAddForm(false)}
-            />
-          )}
-
-          {filteredCards.length > 0 && displayCard ? (
-            <>
-              <div
-                aria-live="polite"
-                className="flashcard-stage"
-                onClick={handleFlip}
-                onKeyDown={(event) => {
-                  if (event.key === ' ') {
-                    event.preventDefault();
-                    handleFlip();
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-              >
-                <div
-                  className={`flashcard ${isFlipped ? 'flashcard--flipped' : ''}`}
-                >
-                  <CardFace
-                    category={displayCard.category}
-                    content={displayCard.question}
-                    easyCount={displayCard.easyCount}
-                    isFront
-                  />
-                  <CardFace
-                    category={displayCard.category}
-                    content={displayCard.answer}
-                    easyCount={displayCard.easyCount}
-                    isFront={false}
-                  />
-                </div>
-              </div>
-
-              <div className="study-actions">
-                {isFlipped ? (
-                  <>
-                    <button
-                      className="button button--ghost"
-                      onClick={() => handleLearningAction('hard')}
-                      type="button"
-                    >
-                      もう一度 (Hard)
-                    </button>
-                    <button
-                      className="button button--secondary"
-                      onClick={() => handleLearningAction('easy')}
-                      type="button"
-                    >
-                      わかった (Easy)
-                    </button>
-                  </>
-                ) : (
-                  <p className="study-hint">カードをクリックまたはスペースキーで反転</p>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="panel panel--empty">
-              <p>このカテゴリーにはカードがありません。</p>
-              <p className="panel__note">カードを追加して学習を始めましょう。</p>
-            </div>
-          )}
+      <section className="panel panel--thin">
+        <div className="inline-controls">
+          <label className="control-label" htmlFor="category-select">
+            カテゴリー
+          </label>
+          <select
+            className="form-control"
+            id="category-select"
+            onChange={(event) => setSelectedCategory(event.target.value)}
+            value={selectedCategory}
+          >
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+          <span className="control-text">
+            {filteredCards.length > 0
+              ? `${currentFilteredIndex + 1} / ${filteredCards.length}`
+              : '0 / 0'}
+          </span>
+          <span className="control-text">カード: {cards.length}</span>
+          <span className="control-text">Easy: {totalEasyCount}</span>
         </div>
+      </section>
 
-        <aside className="study-layout__aside">
-          <section className="panel panel--floating study-summary">
-            <header className="panel__header">
-              <div>
-                <p className="panel__eyebrow">セッション統計</p>
-                <h2 className="panel__title">学習ダイジェスト</h2>
-              </div>
-            </header>
-            <div className="metric-cards">
-              <div className="metric-card">
-                <span className="metric-card__label">マスター済み</span>
-                <span className="metric-card__value">{masteredCount}</span>
-                <span className="metric-card__hint">Easyを押したカード数</span>
-              </div>
-              <div className="metric-card">
-                <span className="metric-card__label">総Easy回数</span>
-                <span className="metric-card__value">{totalEasyCount}</span>
-                <span className="metric-card__hint">理解した回数の累積</span>
-              </div>
-              <div className="metric-card">
-                <span className="metric-card__label">残り</span>
-                <span className="metric-card__value">
-                  {Math.max(cards.length - masteredCount, 0)}
-                </span>
-                <span className="metric-card__hint">まだ理解度評価が必要</span>
-              </div>
+      {showAddForm && (
+        <AddCardForm
+          categories={categories}
+          onAddCard={handleAddCard}
+          onToggle={() => setShowAddForm(false)}
+        />
+      )}
+
+      {filteredCards.length > 0 && displayCard ? (
+        <>
+          <div
+            aria-live="polite"
+            className="flashcard-stage"
+            onClick={handleFlip}
+            onKeyDown={(event) => {
+              if (event.key === ' ') {
+                event.preventDefault();
+                handleFlip();
+              }
+            }}
+            role="button"
+            tabIndex={0}
+          >
+            <div className={`flashcard ${isFlipped ? 'flashcard--flipped' : ''}`}>
+              <CardFace
+                category={displayCard.category}
+                content={displayCard.question}
+                easyCount={displayCard.easyCount}
+                isFront
+              />
+              <CardFace
+                category={displayCard.category}
+                content={displayCard.answer}
+                easyCount={displayCard.easyCount}
+                isFront={false}
+              />
             </div>
-          </section>
+          </div>
 
-          <section className="panel panel--floating">
-            <header className="panel__header">
-              <div>
-                <p className="panel__eyebrow">学習ヒント</p>
-                <h2 className="panel__title">集中するポイント</h2>
-              </div>
-            </header>
-            <ul className="bullet-list bullet-list--light">
-              <li>Hardは同じカテゴリーのカードを連続で見直すタイミングに使いましょう。</li>
-              <li>Easyを押したカードはセッション終了後に復習ログとして活用できます。</li>
-              <li>カードが増えてきたらカテゴリーを分割して記憶を定着させましょう。</li>
-            </ul>
-          </section>
-        </aside>
-      </div>
+          <div className="study-actions">
+            {isFlipped ? (
+              <>
+                <button
+                  className="button button--ghost"
+                  onClick={() => handleLearningAction('hard')}
+                  type="button"
+                >
+                  もう一度
+                </button>
+                <button
+                  className="button button--secondary"
+                  onClick={() => handleLearningAction('easy')}
+                  type="button"
+                >
+                  わかった
+                </button>
+              </>
+            ) : (
+              <p className="study-hint">カードをクリックすると答えを表示します</p>
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="panel panel--empty">
+          <p>このカテゴリーにはカードがありません。</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -784,67 +680,50 @@ function HomeScreen({
   const recentGroup = groupList[0] ?? null;
 
   return (
-    <div className="screen home-screen">
-      <header className="hero-panel hero-panel--simple">
-        <div className="hero-panel__content">
-          <span className="hero-panel__eyebrow">Study Multiple Flash</span>
-          <h1 className="hero-panel__title">フラッシュカード学習ダッシュボード</h1>
-          <p className="hero-panel__subtitle">
-            作成・整理・学習・AI生成をシンプルなレイアウトにまとめました。ホワイトベースの落ち着いた画面で、学習に集中しましょう。
-          </p>
-          <div className="hero-panel__actions">
-            <button
-              className="button button--primary"
-              onClick={() =>
-                onGenerateAiCards({
-                  topic: 'スターターテンプレート',
-                  detail: 'UIチェック',
-                  count: 3,
-                  mode: 'new',
-                  targetGroupId: '',
-                  newGroupName: 'スタータースタック (AI)',
-                })
+    <div className="screen">
+      <header className="home-header">
+        <h1 className="screen-title">フラッシュカード</h1>
+        <p className="home-subtitle">
+          グループを選んで学習するか、AIにカード生成を任せてください。
+        </p>
+        <div className="home-actions">
+          <button
+            className="button button--primary"
+            onClick={() =>
+              onGenerateAiCards({
+                topic: 'スターターテンプレート',
+                detail: 'UIチェック',
+                count: 3,
+                mode: 'new',
+                targetGroupId: '',
+                newGroupName: 'スタータースタック (AI)',
+              })
+            }
+            type="button"
+          >
+            デモカードを生成
+          </button>
+          <button
+            className="button button--secondary"
+            disabled={!recentGroup}
+            onClick={() => {
+              if (recentGroup) {
+                onSelectGroup(recentGroup.id);
               }
-              type="button"
-            >
-              デモカードを生成
-            </button>
-            <button
-              className="button button--secondary"
-              disabled={!recentGroup}
-              onClick={() => {
-                if (recentGroup) {
-                  onSelectGroup(recentGroup.id);
-                }
-              }}
-              type="button"
-            >
-              直近のグループで学習
-            </button>
-          </div>
+            }}
+            type="button"
+          >
+            最近のグループ
+          </button>
         </div>
-        <div className="hero-panel__stats">
-          <div className="stat stat--hero">
-            <span className="stat__label">アクティブグループ</span>
-            <span className="stat__value">{groupList.length}</span>
-            <span className="stat__hint">AI生成も含む全グループ数</span>
-          </div>
-          <div className="hero-panel__stat-grid">
-            <div className="stat">
-              <span className="stat__label">カード</span>
-              <span className="stat__value">{totalCards}</span>
-              <span className="stat__hint">ローカルに保存されています</span>
-            </div>
-            <div className="stat">
-              <span className="stat__label">カテゴリー</span>
-              <span className="stat__value">{totalCategories}</span>
-              <span className="stat__hint">重複を除いた一意の分類</span>
-            </div>
-          </div>
+        <div className="home-summary">
+          <span>グループ: {groupList.length}</span>
+          <span>カード: {totalCards}</span>
+          <span>カテゴリー: {totalCategories}</span>
         </div>
       </header>
 
-      <div className="home-grid">
+      <section className="panel">
         <AiFlashcardGenerator
           error={aiState.error}
           groups={groups}
@@ -852,89 +731,49 @@ function HomeScreen({
           lastResult={aiState.lastResult}
           onGenerate={onGenerateAiCards}
         />
+      </section>
 
-        <div className="home-grid__aside">
-          <section className="panel panel--floating">
-            <header className="panel__header">
-              <div>
-                <p className="panel__eyebrow">グループ管理</p>
-                <h2 className="panel__title">新しいグループを作成</h2>
-              </div>
-            </header>
-            <form className="form" onSubmit={handleCreateGroup}>
-              <div className="form__field">
-                <label className="form__label" htmlFor="new-group">
-                  グループ名
-                </label>
-                <input
-                  className="form__control"
-                  id="new-group"
-                  onChange={(event) => setNewGroupName(event.target.value)}
-                  placeholder="例: 英単語テスト対策"
-                  required
-                  type="text"
-                  value={newGroupName}
-                />
-              </div>
-              <button className="button button--secondary button--block" type="submit">
-                グループを作成
-              </button>
-            </form>
-          </section>
-
-          <section className="panel panel--floating">
-            <header className="panel__header">
-              <div>
-                <p className="panel__eyebrow">クイックスタート</p>
-                <h2 className="panel__title">使い方メモ</h2>
-              </div>
-            </header>
-            <ul className="bullet-list">
-              <li>AI生成でベースを作り、学習に合わせて調整しましょう。</li>
-              <li>学習画面でカテゴリーを切り替えながら集中的に復習できます。</li>
-              <li>Easyボタンで理解度を測り、進捗を蓄積できます。</li>
-            </ul>
-          </section>
-        </div>
-      </div>
-
-      <section className="panel panel--collection">
-        <header className="panel__header">
-          <div>
-            <p className="panel__eyebrow">グループ一覧</p>
-            <h2 className="panel__title">
-              マイグループ（{groupList.length} 件）
-            </h2>
+      <section className="panel">
+        <form className="form" onSubmit={handleCreateGroup}>
+          <label className="form-label" htmlFor="new-group">
+            新しいグループ
+          </label>
+          <div className="form-row">
+            <input
+              className="form-control"
+              id="new-group"
+              onChange={(event) => setNewGroupName(event.target.value)}
+              placeholder="例: 英単語テスト対策"
+              required
+              type="text"
+              value={newGroupName}
+            />
+            <button className="button button--secondary" type="submit">
+              作成
+            </button>
           </div>
-        </header>
+        </form>
+      </section>
 
+      <section className="panel">
+        <h2 className="panel-title">グループ ({groupList.length})</h2>
         {groupList.length === 0 ? (
-          <div className="panel panel--empty">
-            <p>まだグループがありません。</p>
-            <p className="panel__note">
-              グループを作成するか、AI生成でカードセットを用意してみましょう。
-            </p>
-          </div>
+          <p className="panel-text">まだグループがありません。</p>
         ) : (
           <ul className="group-list">
             {groupList.map((group) => (
               <li className="group-card" key={group.id}>
-                <div className="group-card__body">
-                  <h3 className="group-card__title">{group.name}</h3>
-                  <div className="group-card__meta">
-                    <span className="badge">{group.cards.length} 枚</span>
-                    <span className="badge badge--ghost">
-                      {new Set(group.cards.map((card) => card.category || '未分類')).size} カテゴリー
-                    </span>
-                  </div>
+                <div>
+                  <p className="group-name">{group.name}</p>
+                  <span className="group-meta">{group.cards.length} 枚</span>
                 </div>
-                <div className="group-card__actions">
+                <div className="group-actions">
                   <button
                     className="button button--secondary"
                     onClick={() => onSelectGroup(group.id)}
                     type="button"
                   >
-                    学習開始
+                    学習
                   </button>
                   <button
                     className="button button--ghost"
