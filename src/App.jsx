@@ -1,76 +1,78 @@
 import { useEffect, useMemo, useState } from 'react';
+import initialGroupData from './data/initialGroups.json';
 import './App.css';
 
-const LOCAL_STORAGE_KEY = 'flashcard_groups_v5_data';
+const LOCAL_STORAGE_KEY = 'flashcard_groups_v6_data';
 
-const INITIAL_GROUPS = {
-  1: {
-    id: 1,
-    name: '基礎知識 (例)',
-    cards: [
-      {
-        id: 101,
-        category: '日本の歴史',
-        question: '江戸幕府を開いた人物は？',
-        answer: '徳川家康',
-        easyCount: 0,
-      },
-      {
-        id: 102,
-        category: 'プログラミング',
-        question: 'Reactにおける状態管理フックの名前は？',
-        answer: 'useState',
-        easyCount: 0,
-      },
-    ],
-  },
-  2: {
-    id: 2,
-    name: '科学と地理 (例)',
-    cards: [
-      {
-        id: 201,
-        category: '地理',
-        question: '世界の六大陸のうち、最も面積が広いのは？',
-        answer: 'アジア大陸',
-        easyCount: 0,
-      },
-      {
-        id: 202,
-        category: '科学',
-        question: '酸素の元素記号は？',
-        answer: 'O',
-        easyCount: 0,
-      },
-    ],
-  },
+const createGroupMap = (groupsArray) => {
+  const map = {};
+  groupsArray.forEach((group) => {
+    map[group.id] = {
+      ...group,
+      cards: group.cards.map((card) => ({ ...card })),
+    };
+  });
+  return map;
 };
+
+const cloneGroupMap = (groupsMap) =>
+  Object.fromEntries(
+    Object.entries(groupsMap).map(([id, group]) => [
+      id,
+      {
+        ...group,
+        cards: group.cards.map((card) => ({ ...card })),
+      },
+    ]),
+  );
+
+const deriveNextIds = (groupsMap, baseNextGroupId, baseNextCardId) => {
+  let maxGroupId = (baseNextGroupId ?? 1) - 1;
+  let maxCardId = (baseNextCardId ?? 1) - 1;
+
+  Object.values(groupsMap).forEach((group) => {
+    maxGroupId = Math.max(maxGroupId, group.id);
+    group.cards.forEach((card) => {
+      maxCardId = Math.max(maxCardId, card.id);
+    });
+  });
+
+  return {
+    nextGroupId: Math.max(maxGroupId + 1, baseNextGroupId ?? maxGroupId + 1),
+    nextCardId: Math.max(maxCardId + 1, baseNextCardId ?? maxCardId + 1),
+  };
+};
+
+const BASE_GROUPS = createGroupMap(initialGroupData.groups);
+const { nextGroupId: BASE_NEXT_GROUP_ID, nextCardId: BASE_NEXT_CARD_ID } = deriveNextIds(
+  BASE_GROUPS,
+  initialGroupData.nextGroupId,
+  initialGroupData.nextCardId,
+);
 
 const loadGroups = () => {
   const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
   if (savedData) {
     try {
-      const groups = JSON.parse(savedData);
-
-      if (Object.keys(groups).length === 0) {
-        return { groups: INITIAL_GROUPS, nextGroupId: 3, nextCardId: 203 };
-      }
-
-      const maxGroupId = Math.max(0, ...Object.keys(groups).map(Number));
-      let maxCardId = 0;
-      Object.values(groups).forEach((group) => {
-        group.cards.forEach((card) => {
-          maxCardId = Math.max(maxCardId, card.id);
-        });
-      });
-
-      return { groups, nextGroupId: maxGroupId + 1, nextCardId: maxCardId + 1 };
+      const parsedGroups = JSON.parse(savedData);
+      const groups = cloneGroupMap(parsedGroups);
+      const { nextGroupId, nextCardId } = deriveNextIds(
+        groups,
+        BASE_NEXT_GROUP_ID,
+        BASE_NEXT_CARD_ID,
+      );
+      return { groups, nextGroupId, nextCardId };
     } catch (e) {
       console.error('Failed to parse groups from localStorage:', e);
-      return { groups: INITIAL_GROUPS, nextGroupId: 3, nextCardId: 203 };
     }
   }
-  return { groups: INITIAL_GROUPS, nextGroupId: 3, nextCardId: 203 };
+  const groups = cloneGroupMap(BASE_GROUPS);
+  const { nextGroupId, nextCardId } = deriveNextIds(
+    groups,
+    BASE_NEXT_GROUP_ID,
+    BASE_NEXT_CARD_ID,
+  );
+  return { groups, nextGroupId, nextCardId };
 };
 
 const AI_CARD_TEMPLATES = [
@@ -500,6 +502,16 @@ function StudyScreen({ group, setGroup, setScreen, nextCardId, setNextCardId }) 
     return cards.filter((card) => card.category === selectedCategory);
   }, [cards, selectedCategory]);
 
+  const masteredCount = useMemo(
+    () => cards.filter((card) => (card.easyCount || 0) > 0).length,
+    [cards],
+  );
+
+  const totalEasyCount = useMemo(
+    () => cards.reduce((accumulator, card) => accumulator + (card.easyCount || 0), 0),
+    [cards],
+  );
+
   useEffect(() => {
     setCurrentIndex(0);
     setIsFlipped(false);
@@ -576,105 +588,153 @@ function StudyScreen({ group, setGroup, setScreen, nextCardId, setNextCardId }) 
         </div>
       </header>
 
-      <section className="panel panel--subtle study-controls">
-        <div className="study-controls__item">
-          <span className="study-controls__label">カテゴリー</span>
-          <select
-            className="form__control form__control--condensed"
-            onChange={(event) => setSelectedCategory(event.target.value)}
-            value={selectedCategory}
-          >
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="study-controls__item">
-          <span className="study-controls__label">進捗</span>
-          <span className="study-controls__value">
-            {filteredCards.length > 0
-              ? `${currentFilteredIndex + 1} / ${filteredCards.length}`
-              : '0 / 0'}
-          </span>
-        </div>
-        <div className="study-controls__item">
-          <span className="study-controls__label">総カード数</span>
-          <span className="study-controls__value">{cards.length}</span>
-        </div>
-      </section>
-
-      {showAddForm && (
-        <AddCardForm
-          categories={categories}
-          onAddCard={handleAddCard}
-          onToggle={() => setShowAddForm(false)}
-        />
-      )}
-
-      {filteredCards.length > 0 && displayCard ? (
-        <>
-          <div
-            aria-live="polite"
-            className="flashcard-stage"
-            onClick={handleFlip}
-            onKeyDown={(event) => {
-              if (event.key === ' ') {
-                event.preventDefault();
-                handleFlip();
-              }
-            }}
-            role="button"
-            tabIndex={0}
-          >
-            <div
-              className={`flashcard ${isFlipped ? 'flashcard--flipped' : ''}`}
-            >
-              <CardFace
-                category={displayCard.category}
-                content={displayCard.question}
-                easyCount={displayCard.easyCount}
-                isFront
-              />
-              <CardFace
-                category={displayCard.category}
-                content={displayCard.answer}
-                easyCount={displayCard.easyCount}
-                isFront={false}
-              />
+      <div className="study-layout">
+        <div className="study-layout__main">
+          <section className="panel panel--subtle study-controls">
+            <div className="study-controls__item">
+              <span className="study-controls__label">カテゴリー</span>
+              <select
+                className="form__control form__control--condensed"
+                onChange={(event) => setSelectedCategory(event.target.value)}
+                value={selectedCategory}
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
+            <div className="study-controls__item">
+              <span className="study-controls__label">進捗</span>
+              <span className="study-controls__value">
+                {filteredCards.length > 0
+                  ? `${currentFilteredIndex + 1} / ${filteredCards.length}`
+                  : '0 / 0'}
+              </span>
+            </div>
+            <div className="study-controls__item">
+              <span className="study-controls__label">総カード数</span>
+              <span className="study-controls__value">{cards.length}</span>
+            </div>
+          </section>
 
-          <div className="study-actions">
-            {isFlipped ? (
-              <>
-                <button
-                  className="button button--ghost"
-                  onClick={() => handleLearningAction('hard')}
-                  type="button"
+          {showAddForm && (
+            <AddCardForm
+              categories={categories}
+              onAddCard={handleAddCard}
+              onToggle={() => setShowAddForm(false)}
+            />
+          )}
+
+          {filteredCards.length > 0 && displayCard ? (
+            <>
+              <div
+                aria-live="polite"
+                className="flashcard-stage"
+                onClick={handleFlip}
+                onKeyDown={(event) => {
+                  if (event.key === ' ') {
+                    event.preventDefault();
+                    handleFlip();
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+              >
+                <div
+                  className={`flashcard ${isFlipped ? 'flashcard--flipped' : ''}`}
                 >
-                  もう一度 (Hard)
-                </button>
-                <button
-                  className="button button--secondary"
-                  onClick={() => handleLearningAction('easy')}
-                  type="button"
-                >
-                  わかった (Easy)
-                </button>
-              </>
-            ) : (
-              <p className="study-hint">カードをクリックまたはスペースキーで反転</p>
-            )}
-          </div>
-        </>
-      ) : (
-        <div className="panel panel--empty">
-          <p>このカテゴリーにはカードがありません。</p>
-          <p className="panel__note">カードを追加して学習を始めましょう。</p>
+                  <CardFace
+                    category={displayCard.category}
+                    content={displayCard.question}
+                    easyCount={displayCard.easyCount}
+                    isFront
+                  />
+                  <CardFace
+                    category={displayCard.category}
+                    content={displayCard.answer}
+                    easyCount={displayCard.easyCount}
+                    isFront={false}
+                  />
+                </div>
+              </div>
+
+              <div className="study-actions">
+                {isFlipped ? (
+                  <>
+                    <button
+                      className="button button--ghost"
+                      onClick={() => handleLearningAction('hard')}
+                      type="button"
+                    >
+                      もう一度 (Hard)
+                    </button>
+                    <button
+                      className="button button--secondary"
+                      onClick={() => handleLearningAction('easy')}
+                      type="button"
+                    >
+                      わかった (Easy)
+                    </button>
+                  </>
+                ) : (
+                  <p className="study-hint">カードをクリックまたはスペースキーで反転</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="panel panel--empty">
+              <p>このカテゴリーにはカードがありません。</p>
+              <p className="panel__note">カードを追加して学習を始めましょう。</p>
+            </div>
+          )}
         </div>
-      )}
+
+        <aside className="study-layout__aside">
+          <section className="panel panel--floating study-summary">
+            <header className="panel__header">
+              <div>
+                <p className="panel__eyebrow">セッション統計</p>
+                <h2 className="panel__title">学習ダイジェスト</h2>
+              </div>
+            </header>
+            <div className="metric-cards">
+              <div className="metric-card">
+                <span className="metric-card__label">マスター済み</span>
+                <span className="metric-card__value">{masteredCount}</span>
+                <span className="metric-card__hint">Easyを押したカード数</span>
+              </div>
+              <div className="metric-card">
+                <span className="metric-card__label">総Easy回数</span>
+                <span className="metric-card__value">{totalEasyCount}</span>
+                <span className="metric-card__hint">理解した回数の累積</span>
+              </div>
+              <div className="metric-card">
+                <span className="metric-card__label">残り</span>
+                <span className="metric-card__value">
+                  {Math.max(cards.length - masteredCount, 0)}
+                </span>
+                <span className="metric-card__hint">まだ理解度評価が必要</span>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel panel--floating">
+            <header className="panel__header">
+              <div>
+                <p className="panel__eyebrow">学習ヒント</p>
+                <h2 className="panel__title">集中するポイント</h2>
+              </div>
+            </header>
+            <ul className="bullet-list bullet-list--light">
+              <li>Hardは同じカテゴリーのカードを連続で見直すタイミングに使いましょう。</li>
+              <li>Easyを押したカードはセッション終了後に復習ログとして活用できます。</li>
+              <li>カードが増えてきたらカテゴリーを分割して記憶を定着させましょう。</li>
+            </ul>
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }
@@ -721,28 +781,65 @@ function HomeScreen({
     onDeleteGroup(groupId);
   };
 
+  const recentGroup = groupList[0] ?? null;
+
   return (
     <div className="screen home-screen">
-      <header className="hero-panel">
-        <div className="hero-panel__body">
-          <p className="screen__eyebrow">Study Multiple Flash</p>
-          <h1 className="screen__title">フラッシュカード学習ダッシュボード</h1>
+      <header className="hero-panel hero-panel--simple">
+        <div className="hero-panel__content">
+          <span className="hero-panel__eyebrow">Study Multiple Flash</span>
+          <h1 className="hero-panel__title">フラッシュカード学習ダッシュボード</h1>
           <p className="hero-panel__subtitle">
-            グループの整理からAI生成まで、学習体験をモノクロームの洗練されたUIでサポートします。
+            作成・整理・学習・AI生成をシンプルなレイアウトにまとめました。ホワイトベースの落ち着いた画面で、学習に集中しましょう。
           </p>
+          <div className="hero-panel__actions">
+            <button
+              className="button button--primary"
+              onClick={() =>
+                onGenerateAiCards({
+                  topic: 'スターターテンプレート',
+                  detail: 'UIチェック',
+                  count: 3,
+                  mode: 'new',
+                  targetGroupId: '',
+                  newGroupName: 'スタータースタック (AI)',
+                })
+              }
+              type="button"
+            >
+              デモカードを生成
+            </button>
+            <button
+              className="button button--secondary"
+              disabled={!recentGroup}
+              onClick={() => {
+                if (recentGroup) {
+                  onSelectGroup(recentGroup.id);
+                }
+              }}
+              type="button"
+            >
+              直近のグループで学習
+            </button>
+          </div>
         </div>
         <div className="hero-panel__stats">
-          <div className="stat">
-            <span className="stat__label">グループ</span>
+          <div className="stat stat--hero">
+            <span className="stat__label">アクティブグループ</span>
             <span className="stat__value">{groupList.length}</span>
+            <span className="stat__hint">AI生成も含む全グループ数</span>
           </div>
-          <div className="stat">
-            <span className="stat__label">カード</span>
-            <span className="stat__value">{totalCards}</span>
-          </div>
-          <div className="stat">
-            <span className="stat__label">カテゴリー</span>
-            <span className="stat__value">{totalCategories}</span>
+          <div className="hero-panel__stat-grid">
+            <div className="stat">
+              <span className="stat__label">カード</span>
+              <span className="stat__value">{totalCards}</span>
+              <span className="stat__hint">ローカルに保存されています</span>
+            </div>
+            <div className="stat">
+              <span className="stat__label">カテゴリー</span>
+              <span className="stat__value">{totalCategories}</span>
+              <span className="stat__hint">重複を除いた一意の分類</span>
+            </div>
           </div>
         </div>
       </header>
