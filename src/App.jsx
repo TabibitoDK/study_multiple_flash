@@ -1,29 +1,51 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import './App.css';
 
-// Firestoreの代わりにlocalStorageを使用
 const LOCAL_STORAGE_KEY = 'flashcard_groups_v5_data';
 
-// データの初期化: グループIDをキーとしたオブジェクト形式
 const INITIAL_GROUPS = {
   1: {
     id: 1,
     name: '基礎知識 (例)',
     cards: [
-      { id: 101, category: '日本の歴史', question: '江戸幕府を開いた人物は？', answer: '徳川家康', easyCount: 0 },
-      { id: 102, category: 'プログラミング', question: 'Reactにおける状態管理フックの名前は？', answer: 'useState', easyCount: 0 },
+      {
+        id: 101,
+        category: '日本の歴史',
+        question: '江戸幕府を開いた人物は？',
+        answer: '徳川家康',
+        easyCount: 0,
+      },
+      {
+        id: 102,
+        category: 'プログラミング',
+        question: 'Reactにおける状態管理フックの名前は？',
+        answer: 'useState',
+        easyCount: 0,
+      },
     ],
   },
   2: {
     id: 2,
     name: '科学と地理 (例)',
     cards: [
-      { id: 201, category: '地理', question: '世界の六大陸のうち、最も面積が広いのは？', answer: 'アジア大陸', easyCount: 0 },
-      { id: 202, category: '科学', question: '酸素の元素記号は？', answer: 'O', easyCount: 0 },
+      {
+        id: 201,
+        category: '地理',
+        question: '世界の六大陸のうち、最も面積が広いのは？',
+        answer: 'アジア大陸',
+        easyCount: 0,
+      },
+      {
+        id: 202,
+        category: '科学',
+        question: '酸素の元素記号は？',
+        answer: 'O',
+        easyCount: 0,
+      },
     ],
   },
 };
 
-// localStorageからグループデータをロードする関数
 const loadGroups = () => {
   const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
   if (savedData) {
@@ -36,84 +58,113 @@ const loadGroups = () => {
 
       const maxGroupId = Math.max(0, ...Object.keys(groups).map(Number));
       let maxCardId = 0;
-      Object.values(groups).forEach(group => {
-        group.cards.forEach(card => {
+      Object.values(groups).forEach((group) => {
+        group.cards.forEach((card) => {
           maxCardId = Math.max(maxCardId, card.id);
         });
       });
 
       return { groups, nextGroupId: maxGroupId + 1, nextCardId: maxCardId + 1 };
     } catch (e) {
-      console.error("Failed to parse groups from localStorage:", e);
+      console.error('Failed to parse groups from localStorage:', e);
       return { groups: INITIAL_GROUPS, nextGroupId: 3, nextCardId: 203 };
     }
   }
   return { groups: INITIAL_GROUPS, nextGroupId: 3, nextCardId: 203 };
 };
 
-// --- カード表示コンポーネント ---
+const AI_CARD_TEMPLATES = [
+  {
+    question: (topic, focus) =>
+      `${topic}${focus ? `（${focus}）` : ''}の最も重要な定義は？`,
+    answer: (topic, focus) =>
+      `定義の整理:\n・概要: ${topic}の核となる意味を1文で説明\n・背景: なぜ重要かを把握\n・具体例: ${focus || '主要な場面'} に触れる`,
+  },
+  {
+    question: (topic, focus, index) =>
+      `${topic}を学ぶ上で押さえておきたいキーワード ${index} は？`,
+    answer: (topic, focus) =>
+      `覚えるキーワードのヒント:\n1. ${topic}の基礎語句\n2. ${focus || '関連領域'} の代表用語\n3. 説明できるようになる具体的なフレーズ`,
+  },
+  {
+    question: (topic, focus) =>
+      `${topic}${focus ? `（${focus}）` : ''}の代表的な事例・ユースケースは？`,
+    answer: (topic, focus) =>
+      `事例を語る際の構成:\n・状況: どこで${topic}が使われるか\n・課題: ${focus || '現場'} の課題や課題感\n・成果: 何が改善されるか`,
+  },
+  {
+    question: (topic) => `${topic}に関するよくある誤解や落とし穴は？`,
+    answer: (topic, focus) =>
+      `誤解を避ける視点:\n・本質: ${topic}のゴールを再確認\n・比較: 似ている概念との差分を整理\n・実務: ${focus || '実践'}での注意点を具体化`,
+  },
+  {
+    question: (topic, focus, index) =>
+      `${topic}${focus ? `（${focus}）` : ''}の確認テスト: チェックポイント${index}とは？`,
+    answer: (topic, focus) =>
+      `即答できるように準備:\n・問いかけ: ${topic}をどう説明するか\n・視点: ${focus || '関連領域'}の観点を加える\n・まとめ: 30秒で言える解答を作る`,
+  },
+];
+
+const createAiFlashcards = (topic, detail, count, startId) => {
+  const trimmedTopic = topic.trim();
+  const trimmedDetail = detail.trim();
+  const templates = AI_CARD_TEMPLATES;
+
+  return Array.from({ length: count }, (_, index) => {
+    const template = templates[index % templates.length];
+    return {
+      id: startId + index,
+      category: trimmedDetail ? `${trimmedTopic} / ${trimmedDetail}` : trimmedTopic,
+      question: template.question(trimmedTopic, trimmedDetail, index + 1),
+      answer: template.answer(trimmedTopic, trimmedDetail, index + 1),
+      easyCount: 0,
+    };
+  });
+};
+
 const CardFace = ({ content, isFront, category, easyCount }) => (
   <div
-    style={{ backfaceVisibility: 'hidden' }}
-    // モノクロデザインの適用: ボーダーと影
-    className={`absolute w-full h-full p-8 flex flex-col justify-center items-center text-center rounded-2xl shadow-xl transition-opacity duration-300 ease-in-out border-b-4 ${isFront
-        ? 'bg-white border-gray-400'  // 問題: 薄いボーダー
-        : 'bg-white border-gray-600'  // 答え: 濃いボーダー
-      }`}
+    className={`flashcard-face ${isFront ? 'flashcard-face--front' : 'flashcard-face--back'}`}
+    aria-label={isFront ? '問題面' : '答え面'}
   >
-    {/* モノクロデザインの適用: バッジの色 */}
-    <div className={`absolute top-0 left-0 m-4 px-3 py-1 text-xs font-semibold rounded-lg ${isFront
-        ? 'bg-gray-200 text-gray-700'
-        : 'bg-gray-300 text-gray-800'
-      }`}>
-      {isFront ? '問題' : '答え'}
-    </div>
-
-    <p className="text-sm text-gray-500 mb-4 font-medium">{category}</p>
-
-    <p className="text-xl md:text-3xl font-bold text-gray-800 leading-snug">
-      {content}
-    </p>
-
+    <span className="flashcard-face__badge">{isFront ? '問題' : '答え'}</span>
+    <p className="flashcard-face__category">{category || 'カテゴリー未設定'}</p>
+    <p className="flashcard-face__content">{content}</p>
     {!isFront && (
-      <p className="absolute bottom-4 right-4 text-xs text-gray-400">
-        わかった回数: {easyCount}
-      </p>
+      <span className="flashcard-face__meta">わかった回数: {easyCount}</span>
     )}
   </div>
 );
 
-// --- カード追加フォームコンポーネント ---
 function AddCardForm({ categories, onAddCard, onToggle }) {
   const [formData, setFormData] = useState({
-    category: categories.length > 1 ? categories.filter(c => c !== '全て')[0] || '' : '', // 初期値として既存カテゴリーの最初のものを選択
+    category:
+      categories.length > 1
+        ? categories.filter((c) => c !== '全て')[0] || ''
+        : '',
     question: '',
     answer: '',
     newCategory: '',
   });
-
-  // 1. エラー状態の追加
   const [formError, setFormError] = useState('');
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    // ユーザーが入力し始めたらエラーをリセット
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
     setFormError('');
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    // 提出時にエラーをリセット
+  const handleSubmit = (event) => {
+    event.preventDefault();
     setFormError('');
 
-    // 修正: 優先度の決定 - newCategory (入力があれば) > category (選択されていれば)
-    const categoryToUse = formData.newCategory.trim() || formData.category.trim();
+    const categoryToUse =
+      formData.newCategory.trim() || formData.category.trim();
 
     if (!formData.question.trim() || !formData.answer.trim() || !categoryToUse) {
-      // 2. console.error を UI エラー表示に置き換え
-      setFormError("必須項目（問題、答え、カテゴリー）が入力されていません。カードを追加するには、これらの項目すべてが必要です。");
+      setFormError(
+        '必須項目（問題、答え、カテゴリー）が入力されていません。カードを追加するには、これらの項目すべてが必要です。',
+      );
       return;
     }
 
@@ -123,104 +174,91 @@ function AddCardForm({ categories, onAddCard, onToggle }) {
       answer: formData.answer.trim(),
     });
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       question: '',
       answer: '',
       newCategory: '',
-      // 新しく追加したカテゴリーを維持するか、最初の既存カテゴリーに戻す
-      category: categoryToUse // 修正後のカテゴリーを維持
+      category: categoryToUse,
     }));
   };
 
-  const existingCategories = categories.filter(c => c !== '全て');
+  const existingCategories = categories.filter((c) => c !== '全て');
 
   return (
-    <div className="p-6 mb-6 bg-white rounded-2xl shadow-xl border border-gray-100">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold text-gray-800">カードの追加</h3>
-        <button onClick={onToggle} className="text-gray-500 hover:text-gray-700">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
+    <div className="panel panel--floating add-card-form">
+      <div className="panel__header">
+        <div>
+          <p className="panel__eyebrow">カード編集</p>
+          <h3 className="panel__title">カードを追加</h3>
+        </div>
+        <button className="button button--ghost" onClick={onToggle} type="button">
+          閉じる
         </button>
       </div>
-      <form onSubmit={handleSubmit}>
-        {/* カテゴリー選択/新規入力 */}
-        <div className="mb-4 space-y-3">
-          <label className="block text-sm font-medium text-gray-700">カテゴリー</label>
+      <form className="form" onSubmit={handleSubmit}>
+        <div className="form__field form__field--stack">
+          <label className="form__label">カテゴリー</label>
           <select
+            className="form__control"
             name="category"
-            value={formData.category}
             onChange={handleChange}
-            disabled={!!formData.newCategory.trim()}
-            // モノクロデザインの適用: フォーカスリング
-            className={`block w-full rounded-xl border-gray-300 shadow-sm p-3 text-gray-700 focus:ring-gray-700 focus:border-gray-700 text-base ${formData.newCategory.trim() ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+            value={formData.category}
+            disabled={Boolean(formData.newCategory.trim())}
           >
             <option value="">--- 既存のカテゴリーを選択 ---</option>
-            {existingCategories.length > 0 && existingCategories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
+            {existingCategories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
             ))}
           </select>
-
-          <p className="text-center text-gray-500 text-sm">または、新しいカテゴリーを作成</p>
-
+          <span className="form__hint">または新しいカテゴリー名を入力してください。</span>
           <input
-            type="text"
+            className="form__control"
             name="newCategory"
-            value={formData.newCategory}
             onChange={handleChange}
-            placeholder="新しいカテゴリー名を入力"
-            // モノクロデザインの適用: フォーカスリング
-            className="block w-full rounded-xl border-gray-300 shadow-sm p-3 focus:ring-gray-700 focus:border-gray-700 text-base"
+            placeholder="新しいカテゴリー名"
+            type="text"
+            value={formData.newCategory}
           />
         </div>
 
-        {/* 問題入力 */}
-        <div className="mb-4">
-          <label htmlFor="question" className="block text-sm font-medium text-gray-700">問題</label>
+        <div className="form__field">
+          <label className="form__label" htmlFor="question">
+            問題
+          </label>
           <textarea
+            className="form__control form__control--textarea"
             id="question"
             name="question"
-            value={formData.question}
             onChange={handleChange}
-            required
-            rows="2"
-            // モノクロデザインの適用: フォーカスリング
-            className="mt-1 block w-full rounded-xl border-gray-300 shadow-sm p-3 focus:ring-gray-700 focus:border-gray-700 text-base"
             placeholder="例: Reactの最新バージョンは？"
+            required
+            rows={3}
+            value={formData.question}
           />
         </div>
 
-        {/* 答え入力 */}
-        <div className="mb-6">
-          <label htmlFor="answer" className="block text-sm font-medium text-gray-700">答え</label>
+        <div className="form__field">
+          <label className="form__label" htmlFor="answer">
+            答え
+          </label>
           <textarea
+            className="form__control form__control--textarea"
             id="answer"
             name="answer"
-            value={formData.answer}
             onChange={handleChange}
-            required
-            rows="2"
-            // モノクロデザインの適用: フォーカスリング
-            className="mt-1 block w-full rounded-xl border-gray-300 shadow-sm p-3 focus:ring-gray-700 focus:border-gray-700 text-base"
             placeholder="例: React 18 / React 19"
+            required
+            rows={3}
+            value={formData.answer}
           />
         </div>
 
-        {/* 3. エラーメッセージの表示 */}
-        {formError && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-xl text-sm font-medium">
-            {formError}
-          </div>
-        )}
+        {formError && <p className="form__error">{formError}</p>}
 
-        {/* 送信ボタン */}
-        <button
-          type="submit"
-          // モノクロデザインの適用: メインボタン (黒)
-          className="w-full px-4 py-3 bg-gray-800 rounded-xl text-white font-semibold shadow-md hover:bg-gray-900 transition-colors"
-        >
+        <button className="button button--primary button--block" type="submit">
           カードを追加
         </button>
       </form>
@@ -228,8 +266,220 @@ function AddCardForm({ categories, onAddCard, onToggle }) {
   );
 }
 
+function AiFlashcardGenerator({
+  groups,
+  isGenerating,
+  lastResult,
+  error,
+  onGenerate,
+}) {
+  const [mode, setMode] = useState('new');
+  const [formData, setFormData] = useState({
+    topic: '',
+    detail: '',
+    count: 5,
+    targetGroupId: '',
+    newGroupName: '',
+  });
 
-// --- 学習画面コンポーネント ---
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (!formData.topic.trim()) {
+      return;
+    }
+
+    const payload = {
+      topic: formData.topic,
+      detail: formData.detail,
+      count: Number(formData.count),
+      mode,
+      targetGroupId: formData.targetGroupId,
+      newGroupName: formData.newGroupName,
+    };
+    onGenerate(payload);
+  };
+
+  const existingGroupOptions = useMemo(
+    () =>
+      Object.values(groups).map((group) => ({
+        id: group.id,
+        name: group.name,
+      })),
+    [groups],
+  );
+
+  const suggestedGroupName =
+    formData.newGroupName.trim() ||
+    (formData.topic.trim() ? `${formData.topic.trim()} (AI生成)` : '');
+
+  return (
+    <section className="panel panel--ai">
+      <header className="panel__header">
+        <div>
+          <p className="panel__eyebrow">AIサポート</p>
+          <h2 className="panel__title">AIでフラッシュカードを生成</h2>
+        </div>
+        <span className="badge badge--outline">プレビュー</span>
+      </header>
+      <p className="panel__description">
+        トピックと追加情報を入力すると、AIが学習カードのたたき台を作成します。
+        生成されたカードは後から自由に編集できます。
+      </p>
+
+      <form className="form ai-form" onSubmit={handleSubmit}>
+        <div className="form__grid">
+          <div className="form__field">
+            <label className="form__label" htmlFor="ai-topic">
+              トピック<span className="form__required">必須</span>
+            </label>
+            <input
+              autoComplete="off"
+              className="form__control"
+              id="ai-topic"
+              name="topic"
+              onChange={handleChange}
+              placeholder="例: React コンポーネント設計"
+              required
+              value={formData.topic}
+            />
+          </div>
+
+          <div className="form__field">
+            <label className="form__label" htmlFor="ai-detail">
+              補足情報
+            </label>
+            <input
+              autoComplete="off"
+              className="form__control"
+              id="ai-detail"
+              name="detail"
+              onChange={handleChange}
+              placeholder="例: フック / 状態管理 / テスト"
+              value={formData.detail}
+            />
+          </div>
+
+          <div className="form__field">
+            <label className="form__label" htmlFor="ai-count">
+              作成枚数
+            </label>
+            <select
+              className="form__control"
+              id="ai-count"
+              name="count"
+              onChange={handleChange}
+              value={formData.count}
+            >
+              <option value={3}>3 枚</option>
+              <option value={5}>5 枚</option>
+              <option value={8}>8 枚</option>
+              <option value={10}>10 枚</option>
+            </select>
+          </div>
+        </div>
+
+        <fieldset className="form__fieldgroup">
+          <legend className="form__label">追加先</legend>
+          <div className="ai-target">
+            <label className="ai-target__option">
+              <input
+                checked={mode === 'new'}
+                name="ai-target"
+                onChange={() => setMode('new')}
+                type="radio"
+              />
+              <span>新しいグループを作成</span>
+            </label>
+            <label className="ai-target__option">
+              <input
+                checked={mode === 'existing'}
+                name="ai-target"
+                onChange={() => setMode('existing')}
+                type="radio"
+              />
+              <span>既存グループに追加</span>
+            </label>
+          </div>
+
+          {mode === 'new' ? (
+            <div className="form__field">
+          <label className="form__label" htmlFor="ai-new-group">
+            グループ名
+          </label>
+          <input
+            className="form__control"
+            id="ai-new-group"
+            name="newGroupName"
+            onChange={handleChange}
+            placeholder="例: React基礎 (AI生成)"
+            value={formData.newGroupName}
+          />
+          <span className="form__hint">
+            空欄の場合は「{suggestedGroupName || '新規グループ'}」として作成されます。
+          </span>
+        </div>
+          ) : (
+            <div className="form__field">
+              <label className="form__label" htmlFor="ai-existing-group">
+                グループを選択
+              </label>
+              <select
+                className="form__control"
+                id="ai-existing-group"
+                name="targetGroupId"
+                onChange={handleChange}
+                required={mode === 'existing'}
+                value={formData.targetGroupId}
+              >
+                <option value="">--- グループを選択 ---</option>
+                {existingGroupOptions.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </fieldset>
+
+        {error && <p className="form__error">{error}</p>}
+
+        <button
+          className="button button--primary button--block"
+          disabled={isGenerating}
+          type="submit"
+        >
+          {isGenerating ? '生成中...' : 'カードを生成'}
+        </button>
+      </form>
+
+      <footer className="panel__footer">
+        {lastResult ? (
+          <div className="ai-result">
+            <p className="ai-result__title">直近の生成結果</p>
+            <p className="ai-result__meta">
+              {lastResult.groupName} に {lastResult.cardCount} 枚追加しました。
+            </p>
+            <p className="ai-result__meta">
+              トピック: {lastResult.topic}
+              {lastResult.detail ? ` ｜ 補足: ${lastResult.detail}` : ''}
+            </p>
+          </div>
+        ) : (
+          <p className="panel__note">
+            バックエンドを接続すると、実際のAIモデルによるカード生成が行えます。
+          </p>
+        )}
+      </footer>
+    </section>
+  );
+}
+
 function StudyScreen({ group, setGroup, setScreen, nextCardId, setNextCardId }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -239,7 +489,7 @@ function StudyScreen({ group, setGroup, setScreen, nextCardId, setNextCardId }) 
   const cards = group.cards;
 
   const categories = useMemo(() => {
-    const all = cards.map(card => card.category).filter(Boolean);
+    const all = cards.map((card) => card.category).filter(Boolean);
     return ['全て', ...new Set(all)].sort();
   }, [cards]);
 
@@ -247,7 +497,7 @@ function StudyScreen({ group, setGroup, setScreen, nextCardId, setNextCardId }) 
     if (selectedCategory === '全て') {
       return cards;
     }
-    return cards.filter(card => card.category === selectedCategory);
+    return cards.filter((card) => card.category === selectedCategory);
   }, [cards, selectedCategory]);
 
   useEffect(() => {
@@ -258,9 +508,8 @@ function StudyScreen({ group, setGroup, setScreen, nextCardId, setNextCardId }) 
   const displayCard = filteredCards[currentIndex];
   const currentFilteredIndex = filteredCards.length > 0 ? currentIndex : -1;
 
-  // --- カード操作 ---
   const handleFlip = () => {
-    setIsFlipped(!isFlipped);
+    setIsFlipped((prev) => !prev);
   };
 
   const moveToNextCard = () => {
@@ -268,17 +517,18 @@ function StudyScreen({ group, setGroup, setScreen, nextCardId, setNextCardId }) 
     if (filteredCards.length > 0) {
       setTimeout(() => {
         setCurrentIndex((prevIndex) => (prevIndex + 1) % filteredCards.length);
-      }, 100);
+      }, 120);
     }
   };
 
-  // --- 学習追跡機能 ---
   const handleLearningAction = (action) => {
     if (!displayCard) return;
 
     if (action === 'easy') {
-      const updatedCards = cards.map(card =>
-        card.id === displayCard.id ? { ...card, easyCount: (card.easyCount || 0) + 1 } : card
+      const updatedCards = cards.map((card) =>
+        card.id === displayCard.id
+          ? { ...card, easyCount: (card.easyCount || 0) + 1 }
+          : card,
       );
       setGroup({ ...group, cards: updatedCards });
     }
@@ -286,7 +536,6 @@ function StudyScreen({ group, setGroup, setScreen, nextCardId, setNextCardId }) 
     moveToNextCard();
   };
 
-  // --- カード追加機能 ---
   const handleAddCard = (newCardData) => {
     const newCard = {
       id: nextCardId,
@@ -297,352 +546,526 @@ function StudyScreen({ group, setGroup, setScreen, nextCardId, setNextCardId }) 
     const updatedCards = [...cards, newCard];
 
     setGroup({ ...group, cards: updatedCards });
-    setNextCardId(prevId => prevId + 1);
+    setNextCardId((prevId) => prevId + 1);
     setShowAddForm(false);
-    setSelectedCategory(newCard.category); // 新しく追加したカードのカテゴリーに自動で切り替える
+    setSelectedCategory(newCard.category);
   };
 
-
   return (
-    <div className="w-full max-w-xl mx-auto">
-      {/* ホームへ戻るボタンとタイトル */}
-      <div className="flex justify-between items-center mb-8 p-4 bg-white rounded-2xl shadow-lg border border-gray-100">
+    <div className="screen study-screen">
+      <header className="screen__header">
         <button
+          className="button button--ghost"
           onClick={() => setScreen('Home')}
-          className="flex items-center space-x-1 px-4 py-2 bg-gray-100 rounded-xl text-gray-700 font-semibold hover:bg-gray-200 transition-colors text-sm"
+          type="button"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-          </svg>
-          <span>グループ一覧へ</span>
+          ← グループ一覧へ
         </button>
-        <h2 className="text-xl md:text-2xl font-extrabold text-gray-800">{group.name}</h2>
-      </div>
+        <div className="screen__heading">
+          <p className="screen__eyebrow">学習モード</p>
+          <h1 className="screen__title">{group.name}</h1>
+        </div>
+        <div className="screen__actions">
+          <button
+            className="button"
+            onClick={() => setShowAddForm((prev) => !prev)}
+            type="button"
+          >
+            {showAddForm ? 'フォームを閉じる' : 'カードを追加'}
+          </button>
+        </div>
+      </header>
 
-      {/* --- カード追加ボタン --- */}
-      <div className="flex justify-end mb-6">
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          // モノクロデザインの適用: メインボタン (黒)
-          className="flex items-center space-x-2 px-4 py-2 bg-gray-800 rounded-xl text-white font-semibold shadow-md hover:bg-gray-900 transition-colors text-sm"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-          </svg>
-          <span>カードを追加</span>
-        </button>
-      </div>
+      <section className="panel panel--subtle study-controls">
+        <div className="study-controls__item">
+          <span className="study-controls__label">カテゴリー</span>
+          <select
+            className="form__control form__control--condensed"
+            onChange={(event) => setSelectedCategory(event.target.value)}
+            value={selectedCategory}
+          >
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="study-controls__item">
+          <span className="study-controls__label">進捗</span>
+          <span className="study-controls__value">
+            {filteredCards.length > 0
+              ? `${currentFilteredIndex + 1} / ${filteredCards.length}`
+              : '0 / 0'}
+          </span>
+        </div>
+        <div className="study-controls__item">
+          <span className="study-controls__label">総カード数</span>
+          <span className="study-controls__value">{cards.length}</span>
+        </div>
+      </section>
 
-      {/* --- カード追加フォーム --- */}
-      {showAddForm && <AddCardForm categories={categories} onAddCard={handleAddCard} onToggle={() => setShowAddForm(false)} />}
+      {showAddForm && (
+        <AddCardForm
+          categories={categories}
+          onAddCard={handleAddCard}
+          onToggle={() => setShowAddForm(false)}
+        />
+      )}
 
-
-      {/* --- カテゴリー選択ドロップダウン --- */}
-      <div className="flex justify-between items-center mb-8 p-4 bg-white rounded-2xl shadow-md border border-gray-100">
-        <label htmlFor="category-select" className="text-gray-700 font-medium mr-4">
-          カテゴリー:
-        </label>
-        <select
-          id="category-select"
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          // モノクロデザインの適用: フォーカスリング
-          className="p-2 border border-gray-300 rounded-xl shadow-sm focus:ring-gray-700 focus:border-gray-700 text-gray-700 bg-white"
-        >
-          {categories.map(cat => (
-            <option key={cat} value={cat}>{cat}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* --- カードの表示とナビゲーション --- */}
       {filteredCards.length > 0 && displayCard ? (
         <>
-          {/* --- 進捗表示 --- */}
-          <div className="text-center text-gray-600 mb-6 font-medium">
-            <p>
-              {currentFilteredIndex + 1} / {filteredCards.length} 枚目 (全 {cards.length} 枚)
-            </p>
-          </div>
-
-          {/* --- フラッシュカード本体 --- */}
           <div
-            className="relative w-full h-80 perspective-1000 cursor-pointer mb-8"
+            aria-live="polite"
+            className="flashcard-stage"
             onClick={handleFlip}
-            tabIndex="0"
-            onKeyDown={(e) => {
-              if (e.key === ' ') {
-                e.preventDefault();
+            onKeyDown={(event) => {
+              if (event.key === ' ') {
+                event.preventDefault();
                 handleFlip();
               }
             }}
+            role="button"
+            tabIndex={0}
           >
-            {/* 3D反転コンテナ */}
             <div
-              className="relative w-full h-full transition-transform duration-700 ease-in-out transform-gpu"
-              style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
+              className={`flashcard ${isFlipped ? 'flashcard--flipped' : ''}`}
             >
-              {/* カードの表面 (問題) */}
               <CardFace
-                content={displayCard.question}
-                isFront={true}
                 category={displayCard.category}
+                content={displayCard.question}
                 easyCount={displayCard.easyCount}
+                isFront
               />
-              {/* カードの裏面 (答え) */}
-              <div
-                className="absolute w-full h-full transform rotate-y-180"
-                style={{ backfaceVisibility: 'hidden' }}
-              >
-                <CardFace
-                  content={displayCard.answer}
-                  isFront={false}
-                  category={displayCard.category}
-                  easyCount={displayCard.easyCount}
-                />
-              </div>
+              <CardFace
+                category={displayCard.category}
+                content={displayCard.answer}
+                easyCount={displayCard.easyCount}
+                isFront={false}
+              />
             </div>
           </div>
 
-          {/* --- 学習追跡ボタン (裏返した後のみ表示) --- */}
-          <div className="flex justify-center items-center space-x-4">
+          <div className="study-actions">
             {isFlipped ? (
               <>
                 <button
+                  className="button button--ghost"
                   onClick={() => handleLearningAction('hard')}
-                  // モノクロデザインの適用: Hard (濃いグレー)
-                  className="flex items-center space-x-2 px-6 py-3 bg-gray-700 rounded-2xl text-white font-semibold shadow-lg hover:bg-gray-800 transition-all"
+                  type="button"
                 >
-                  <span>もう一度 (Hard)</span>
+                  もう一度 (Hard)
                 </button>
                 <button
+                  className="button button--secondary"
                   onClick={() => handleLearningAction('easy')}
-                  // モノクロデザインの適用: Easy (明るいグレー)
-                  className="flex items-center space-x-2 px-6 py-3 bg-gray-500 rounded-2xl text-white font-semibold shadow-lg hover:bg-gray-600 transition-all"
+                  type="button"
                 >
-                  <span>わかった (Easy)</span>
+                  わかった (Easy)
                 </button>
               </>
             ) : (
-              <p className="text-gray-500 font-medium p-3">カードをクリックして答えを表示</p>
+              <p className="study-hint">カードをクリックまたはスペースキーで反転</p>
             )}
           </div>
-
         </>
       ) : (
-        <div className="text-center p-12 bg-white rounded-2xl shadow-xl border border-gray-100">
-          <p className="text-lg font-medium text-gray-700">このカテゴリーにはカードがありません。</p>
-          <p className="text-sm text-gray-500 mt-2">新しいカードを追加してください。</p>
+        <div className="panel panel--empty">
+          <p>このカテゴリーにはカードがありません。</p>
+          <p className="panel__note">カードを追加して学習を始めましょう。</p>
         </div>
       )}
-
-      {/* --- 操作説明 --- */}
-      <p className="text-center text-sm text-gray-500 mt-6">
-        (ヒント: カードをクリックするか、スペースキーを押すと反転します)
-      </p>
     </div>
   );
 }
 
-
-// --- ホーム画面コンポーネント ---
-function HomeScreen({ groups, onCreateGroup, onDeleteGroup, onSelectGroup, nextGroupId, setNextGroupId }) {
+function HomeScreen({
+  groups,
+  onCreateGroup,
+  onDeleteGroup,
+  onSelectGroup,
+  nextGroupId,
+  setNextGroupId,
+  aiState,
+  onGenerateAiCards,
+}) {
   const groupList = Object.values(groups);
   const [newGroupName, setNewGroupName] = useState('');
 
-  const handleCreateGroup = (e) => {
-    e.preventDefault();
+  const totalCards = useMemo(
+    () =>
+      groupList.reduce((accumulator, current) => accumulator + current.cards.length, 0),
+    [groupList],
+  );
+
+  const totalCategories = useMemo(() => {
+    const categorySet = new Set();
+    groupList.forEach((group) =>
+      group.cards.forEach((card) => {
+        if (card.category) categorySet.add(card.category);
+      }),
+    );
+    return categorySet.size;
+  }, [groupList]);
+
+  const handleCreateGroup = (event) => {
+    event.preventDefault();
     if (newGroupName.trim() === '') return;
 
     onCreateGroup(newGroupName.trim(), nextGroupId);
-    setNextGroupId(nextGroupId + 1);
+    setNextGroupId((prev) => prev + 1);
     setNewGroupName('');
   };
 
   const handleDeleteGroup = (groupId) => {
-    // 規約に基づき、window.confirm()の代わりに、シンプルな処理に置き換えます。
-    // ユーザーがボタンを押した時点で削除の意図があると見なします。
     onDeleteGroup(groupId);
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4">
-      {/* --- ダッシュボード風ヘッダー --- */}
-      <div className="p-6 mb-8 bg-white rounded-2xl shadow-xl border border-gray-100">
-        <h1 className="text-3xl font-extrabold text-gray-800">
-          フラッシュカード 学習ダッシュボード
-        </h1>
-        <p className="text-lg text-gray-500 mt-1">作成済みのグループから学習を始めましょう。</p>
+    <div className="screen home-screen">
+      <header className="hero-panel">
+        <div className="hero-panel__body">
+          <p className="screen__eyebrow">Study Multiple Flash</p>
+          <h1 className="screen__title">フラッシュカード学習ダッシュボード</h1>
+          <p className="hero-panel__subtitle">
+            グループの整理からAI生成まで、学習体験をモノクロームの洗練されたUIでサポートします。
+          </p>
+        </div>
+        <div className="hero-panel__stats">
+          <div className="stat">
+            <span className="stat__label">グループ</span>
+            <span className="stat__value">{groupList.length}</span>
+          </div>
+          <div className="stat">
+            <span className="stat__label">カード</span>
+            <span className="stat__value">{totalCards}</span>
+          </div>
+          <div className="stat">
+            <span className="stat__label">カテゴリー</span>
+            <span className="stat__value">{totalCategories}</span>
+          </div>
+        </div>
+      </header>
+
+      <div className="home-grid">
+        <AiFlashcardGenerator
+          error={aiState.error}
+          groups={groups}
+          isGenerating={aiState.status === 'generating'}
+          lastResult={aiState.lastResult}
+          onGenerate={onGenerateAiCards}
+        />
+
+        <div className="home-grid__aside">
+          <section className="panel panel--floating">
+            <header className="panel__header">
+              <div>
+                <p className="panel__eyebrow">グループ管理</p>
+                <h2 className="panel__title">新しいグループを作成</h2>
+              </div>
+            </header>
+            <form className="form" onSubmit={handleCreateGroup}>
+              <div className="form__field">
+                <label className="form__label" htmlFor="new-group">
+                  グループ名
+                </label>
+                <input
+                  className="form__control"
+                  id="new-group"
+                  onChange={(event) => setNewGroupName(event.target.value)}
+                  placeholder="例: 英単語テスト対策"
+                  required
+                  type="text"
+                  value={newGroupName}
+                />
+              </div>
+              <button className="button button--secondary button--block" type="submit">
+                グループを作成
+              </button>
+            </form>
+          </section>
+
+          <section className="panel panel--floating">
+            <header className="panel__header">
+              <div>
+                <p className="panel__eyebrow">クイックスタート</p>
+                <h2 className="panel__title">使い方メモ</h2>
+              </div>
+            </header>
+            <ul className="bullet-list">
+              <li>AI生成でベースを作り、学習に合わせて調整しましょう。</li>
+              <li>学習画面でカテゴリーを切り替えながら集中的に復習できます。</li>
+              <li>Easyボタンで理解度を測り、進捗を蓄積できます。</li>
+            </ul>
+          </section>
+        </div>
       </div>
 
-      {/* --- 新規グループ作成フォーム --- */}
-      <form onSubmit={handleCreateGroup} className="p-5 mb-8 bg-white rounded-2xl shadow-lg border border-gray-100">
-        <h3 className="text-xl font-bold text-gray-800 mb-3 border-b pb-2">新しいグループを作成</h3>
-        <div className="flex space-x-2 mt-4">
-          <input
-            type="text"
-            value={newGroupName}
-            onChange={(e) => setNewGroupName(e.target.value)}
-            placeholder="グループ名を入力"
-            // モノクロデザインの適用: フォーカスリング
-            className="flex-grow p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-gray-700 focus:border-gray-700 text-base"
-            required
-          />
-          <button
-            type="submit"
-            // モノクロデザインの適用: メインボタン (黒)
-            className="px-4 py-2 bg-gray-800 rounded-xl text-white font-semibold shadow-md hover:bg-gray-900 transition-colors"
-          >
-            作成
-          </button>
-        </div>
-      </form>
+      <section className="panel panel--collection">
+        <header className="panel__header">
+          <div>
+            <p className="panel__eyebrow">グループ一覧</p>
+            <h2 className="panel__title">
+              マイグループ（{groupList.length} 件）
+            </h2>
+          </div>
+        </header>
 
-
-      {/* --- グループ一覧 --- */}
-      <div className="space-y-4">
-        <h3 className="text-2xl font-bold text-gray-800 mb-4">マイグループ ({groupList.length} 件)</h3>
         {groupList.length === 0 ? (
-          <div className="text-center p-8 bg-white rounded-2xl shadow-md border border-dashed border-gray-300">
-            <p className="text-gray-600 font-medium">まだグループがありません。上記から新しいグループを作成してください。</p>
+          <div className="panel panel--empty">
+            <p>まだグループがありません。</p>
+            <p className="panel__note">
+              グループを作成するか、AI生成でカードセットを用意してみましょう。
+            </p>
           </div>
         ) : (
-          groupList.map(group => (
-            <div
-              key={group.id}
-              // モノクロデザインの適用: ホバー時のリング
-              className="p-5 bg-white rounded-2xl shadow-lg flex justify-between items-center transition duration-200 hover:shadow-xl hover:ring-2 hover:ring-gray-200 border border-gray-100"
-            >
-              <div className="flex-grow">
-                <h3 className="text-xl font-bold text-gray-800">{group.name}</h3>
-                <p className="text-sm text-gray-500 mt-1">カード数: {group.cards.length} 枚</p>
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => onSelectGroup(group.id)}
-                  // モノクロデザインの適用: 学習開始ボタン (濃いグレー)
-                  className="px-4 py-2 bg-gray-700 rounded-xl text-white font-semibold shadow-md hover:bg-gray-800 transition-colors"
-                >
-                  学習開始
-                </button>
-                <button
-                  onClick={() => handleDeleteGroup(group.id)}
-                  // モノクロデザインの適用: 削除ボタンのホバー色
-                  className="p-2 bg-white border border-gray-300 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
-                  title="グループを削除"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 6h6v10H7V6z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          ))
+          <ul className="group-list">
+            {groupList.map((group) => (
+              <li className="group-card" key={group.id}>
+                <div className="group-card__body">
+                  <h3 className="group-card__title">{group.name}</h3>
+                  <div className="group-card__meta">
+                    <span className="badge">{group.cards.length} 枚</span>
+                    <span className="badge badge--ghost">
+                      {new Set(group.cards.map((card) => card.category || '未分類')).size} カテゴリー
+                    </span>
+                  </div>
+                </div>
+                <div className="group-card__actions">
+                  <button
+                    className="button button--secondary"
+                    onClick={() => onSelectGroup(group.id)}
+                    type="button"
+                  >
+                    学習開始
+                  </button>
+                  <button
+                    className="button button--ghost"
+                    onClick={() => handleDeleteGroup(group.id)}
+                    type="button"
+                  >
+                    削除
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
-      </div>
+      </section>
     </div>
   );
 }
 
-
-// --- メインアプリコンポーネント ---
 export default function App() {
   const [{ groups, nextGroupId, nextCardId }, setAppState] = useState(loadGroups);
   const [currentScreen, setCurrentScreen] = useState('Home');
   const [studyGroupId, setStudyGroupId] = useState(null);
+  const [aiState, setAiState] = useState({
+    status: 'idle',
+    lastResult: null,
+    error: '',
+  });
 
-  // ローカルストレージにデータを保存する副作用
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(groups));
   }, [groups]);
 
-  // グループのカードを更新するためのヘルパー関数
+  const setNextGroupIdValue = (updater) => {
+    setAppState((prev) => {
+      const nextValue =
+        typeof updater === 'function' ? updater(prev.nextGroupId) : updater;
+      return { ...prev, nextGroupId: nextValue };
+    });
+  };
+
+  const setNextCardIdValue = (updater) => {
+    setAppState((prev) => {
+      const nextValue =
+        typeof updater === 'function' ? updater(prev.nextCardId) : updater;
+      return { ...prev, nextCardId: nextValue };
+    });
+  };
+
   const updateGroupCards = (groupId, newGroupData) => {
-    setAppState(prev => ({
+    setAppState((prev) => ({
       ...prev,
       groups: {
         ...prev.groups,
         [groupId]: newGroupData,
-      }
+      },
     }));
   };
 
-  // グループ作成ロジック
   const handleCreateGroup = (groupName, id) => {
     const newGroup = {
-      id: id,
+      id,
       name: groupName,
       cards: [],
     };
-    setAppState(prev => ({
+    setAppState((prev) => ({
       ...prev,
-      groups: { ...prev.groups, [id]: newGroup }
+      groups: { ...prev.groups, [id]: newGroup },
     }));
   };
 
-  // グループ削除ロジック
   const handleDeleteGroup = (groupId) => {
-    setAppState(prev => {
+    setAppState((prev) => {
       const newGroups = { ...prev.groups };
       delete newGroups[groupId];
       return { ...prev, groups: newGroups };
     });
   };
 
-  // グループ選択ロジック
   const handleSelectGroup = (groupId) => {
     setStudyGroupId(groupId);
     setCurrentScreen('Study');
   };
 
+  const handleGenerateAiCards = ({
+    topic,
+    detail,
+    count,
+    mode,
+    targetGroupId,
+    newGroupName,
+  }) => {
+    if (!topic.trim()) {
+      setAiState({
+        status: 'error',
+        lastResult: null,
+        error: 'トピックを入力してください。',
+      });
+      return;
+    }
+
+    if (mode === 'existing' && !targetGroupId) {
+      setAiState({
+        status: 'error',
+        lastResult: null,
+        error: '追加先のグループを選択してください。',
+      });
+      return;
+    }
+
+    setAiState((prev) => ({ ...prev, status: 'generating', error: '' }));
+
+    const simulatedLatency = 700;
+    setTimeout(() => {
+      setAppState((prev) => {
+        const cards = createAiFlashcards(topic, detail, count, prev.nextCardId);
+
+        if (mode === 'existing') {
+          const numericId = Number(targetGroupId);
+          const targetGroup = prev.groups[numericId];
+
+          if (!targetGroup) {
+            setAiState({
+              status: 'error',
+              lastResult: null,
+              error: '選択したグループが見つかりませんでした。',
+            });
+            return prev;
+          }
+
+          const updatedGroup = {
+            ...targetGroup,
+            cards: [...targetGroup.cards, ...cards],
+          };
+
+          setAiState({
+            status: 'success',
+            lastResult: {
+              groupName: targetGroup.name,
+              cardCount: cards.length,
+              topic,
+              detail,
+            },
+            error: '',
+          });
+
+          return {
+            ...prev,
+            groups: {
+              ...prev.groups,
+              [numericId]: updatedGroup,
+            },
+            nextCardId: prev.nextCardId + cards.length,
+          };
+        }
+
+        const assignedGroupId = prev.nextGroupId;
+        const resolvedName =
+          newGroupName.trim() || `${topic.trim()} (AI生成)`;
+        const newGroup = {
+          id: assignedGroupId,
+          name: resolvedName,
+          cards,
+        };
+
+        setAiState({
+          status: 'success',
+          lastResult: {
+            groupName: resolvedName,
+            cardCount: cards.length,
+            topic,
+            detail,
+          },
+          error: '',
+        });
+
+        return {
+          ...prev,
+          groups: {
+            ...prev.groups,
+            [assignedGroupId]: newGroup,
+          },
+          nextGroupId: prev.nextGroupId + 1,
+          nextCardId: prev.nextCardId + cards.length,
+        };
+      });
+    }, simulatedLatency);
+  };
+
   const currentGroup = studyGroupId ? groups[studyGroupId] : null;
 
-
-  // --- 画面の切り替えとフォールバックロジック ---
   let content;
 
   if (currentScreen === 'Study' && currentGroup) {
-    // 正常な学習画面表示
     content = (
       <StudyScreen
         group={currentGroup}
-        setGroup={(newGroupData) => updateGroupCards(studyGroupId, newGroupData)}
-        setScreen={setCurrentScreen}
         nextCardId={nextCardId}
-        setNextCardId={(newId) => setAppState(prev => ({ ...prev, nextCardId: newId }))}
+        setGroup={(newGroupData) => updateGroupCards(studyGroupId, newGroupData)}
+        setNextCardId={setNextCardIdValue}
+        setScreen={setCurrentScreen}
       />
     );
   } else {
-    // Home画面表示、またはStudy画面でデータがない場合のフォールバック
     if (currentScreen === 'Study' && !currentGroup) {
-      console.warn('学習中のグループデータが見つかりませんでした。ホーム画面に自動で戻ります。');
+      console.warn(
+        '学習中のグループデータが見つかりませんでした。ホーム画面に自動で戻ります。',
+      );
       setCurrentScreen('Home');
     }
 
     content = (
       <HomeScreen
+        aiState={aiState}
         groups={groups}
+        nextGroupId={nextGroupId}
         onCreateGroup={handleCreateGroup}
         onDeleteGroup={handleDeleteGroup}
+        onGenerateAiCards={handleGenerateAiCards}
         onSelectGroup={handleSelectGroup}
-        nextGroupId={nextGroupId}
-        setNextGroupId={(newId) => setAppState(prev => ({ ...prev, nextGroupId: newId }))}
+        setNextGroupId={setNextGroupIdValue}
       />
     );
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen flex flex-col items-center justify-start font-sans p-4 pt-10">
-      {content}
-      {/* 3D反転のための Tailwind 補助クラスの定義 */}
-      <style>{`
-        .perspective-1000 {
-            perspective: 1000px;
-        }
-        .rotate-y-180 {
-            transform: rotateY(180deg);
-        }
-      `}</style>
+    <div className="app-shell">
+      <div className="app-shell__backdrop" />
+      <div className="app-shell__content">{content}</div>
     </div>
   );
 }
